@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WA Reaction App</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface2: #1a1a24;
+  --border: #2a2a3a;
+  --green: #00e676;
+  --green2: #00c853;
+  --green-glow: #00e67633;
+  --blue: #448aff;
+  --purple: #7c4dff;
+  --red: #ff5252;
+  --text: #f0f0ff;
+  --muted: #6b6b8a;
+  --radius: 16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:20px 16px 80px;
+  overflow-x:hidden;
+}
+
+/* Animated bg */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 10% 10%, #00e67608, transparent),
+    radial-gradient(ellipse 50% 30% at 90% 80%, #7c4dff08, transparent),
+    radial-gradient(ellipse 70% 50% at 50% 50%, #448aff05, transparent);
+  pointer-events:none;z-index:0;
+}
+
+.wrap{max-width:440px;margin:0 auto;position:relative;z-index:1;}
+
+/* ── Header ── */
+.header{text-align:center;padding:20px 0 28px;}
+.logo-wrap{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:72px;height:72px;
+  background:linear-gradient(135deg,#00e676,#00c853);
+  border-radius:24px;
+  margin-bottom:14px;
+  box-shadow:0 0 40px #00e67644;
+  animation:pulse-logo 3s ease-in-out infinite;
+}
+@keyframes pulse-logo{
+  0%,100%{box-shadow:0 0 40px #00e67644;}
+  50%{box-shadow:0 0 60px #00e67666;}
+}
+.logo-wrap svg{width:38px;height:38px;}
+.header h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}
+.header h1 span{color:var(--green);}
+.header p{color:var(--muted);font-size:14px;}
+
+/* ── Status Bar ── */
+.status-pill{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 18px;
+  border-radius:14px;
+  margin-bottom:16px;
+  font-weight:600;font-size:14px;
+  transition:all 0.4s;
+  border:1px solid transparent;
+}
+.status-pill .dot{
+  width:10px;height:10px;border-radius:50%;flex-shrink:0;
+}
+.s-disconnected{background:#1a0f0f;border-color:#3a1515;color:#ff6b6b;}
+.s-disconnected .dot{background:#ff5252;box-shadow:0 0 8px #ff5252;}
+.s-qr{background:#0f1a2a;border-color:#153050;color:#64b5f6;}
+.s-qr .dot{background:#448aff;box-shadow:0 0 8px #448aff;animation:blink 1s ease-in-out infinite;}
+.s-authenticated{background:#150f2a;border-color:#2a1560;color:#b39ddb;}
+.s-authenticated .dot{background:#7c4dff;box-shadow:0 0 8px #7c4dff;animation:blink 0.8s ease-in-out infinite;}
+.s-ready{background:#0a1a0f;border-color:#0d3a1a;color:#69f0ae;}
+.s-ready .dot{background:#00e676;box-shadow:0 0 10px #00e676;}
+.s-failed{background:#1a0f0f;border-color:#3a1515;color:#ff6b6b;}
+.s-failed .dot{background:#ff5252;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+/* ── Cards ── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  margin-bottom:14px;
+  transition:border-color 0.2s;
+}
+.card:hover{border-color:#3a3a50;}
+.card-header{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:16px;
+}
+.card-icon{
+  width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+}
+.icon-green{background:#00e67615;}
+.icon-blue{background:#448aff15;}
+.icon-purple{background:#7c4dff15;}
+.icon-orange{background:#ff980015;}
+.card-title{font-weight:700;font-size:15px;}
+.card-sub{font-size:12px;color:var(--muted);margin-top:1px;}
+
+/* ── QR ── */
+.qr-container{
+  text-align:center;padding:10px 0;
+}
+.qr-frame{
+  display:inline-block;
+  padding:12px;
+  background:#fff;
+  border-radius:16px;
+  margin-bottom:14px;
+  box-shadow:0 0 40px #00e67622;
+  animation:qr-glow 2s ease-in-out infinite;
+}
+@keyframes qr-glow{
+  0%,100%{box-shadow:0 0 30px #00e67622;}
+  50%{box-shadow:0 0 50px #00e67644;}
+}
+#qr-img{width:200px;height:200px;display:block;border-radius:8px;}
+.qr-hint{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+  font-size:13px;
+  line-height:1.8;
+  color:var(--muted);
+  text-align:left;
+}
+.qr-hint b{color:var(--text);}
+.qr-steps{list-style:none;margin-top:8px;}
+.qr-steps li{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:4px 0;font-size:13px;
+}
+.step-num{
+  width:20px;height:20px;border-radius:50%;
+  background:var(--green);color:#000;
+  font-weight:700;font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;
+}
+
+/* ── Loading bar ── */
+.loading-bar{
+  height:3px;background:var(--surface2);border-radius:99px;
+  overflow:hidden;margin-bottom:16px;display:none;
+}
+.loading-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--green),var(--blue));
+  border-radius:99px;
+  transition:width 0.5s;
+  animation:shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer{
+  0%{filter:brightness(1);}
+  50%{filter:brightness(1.4);}
+  100%{filter:brightness(1);}
+}
+
+/* ── Chat List ── */
+.search-wrap{position:relative;margin-bottom:12px;}
+.search-wrap input{
+  width:100%;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 14px 10px 38px;
+  color:var(--text);font-size:14px;outline:none;
+  transition:border-color 0.2s;
+}
+.search-wrap input:focus{border-color:var(--green);}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-icon{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  font-size:15px;pointer-events:none;
+}
+#chat-list{max-height:260px;overflow-y:auto;padding-right:2px;}
+#chat-list::-webkit-scrollbar{width:3px;}
+#chat-list::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:99px;}
+.chat-item{
+  display:flex;align-items:center;gap:12px;
+  background:var(--surface2);
+  border:1.5px solid transparent;
+  border-radius:12px;
+  padding:12px;
+  margin-bottom:7px;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.chat-item:hover{border-color:#3a3a50;background:#1e1e2a;}
+.chat-item.selected{border-color:var(--green);background:#0a1a10;}
+.chat-avatar{
+  width:42px;height:42px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;font-weight:700;
+  background:var(--surface);
+}
+.chat-info{flex:1;min-width:0;}
+.chat-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;}
+.chat-last{color:var(--muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.badge{
+  display:inline-block;font-size:9px;padding:2px 7px;
+  border-radius:99px;font-weight:700;letter-spacing:0.3px;
+  flex-shrink:0;
+}
+.b-channel{background:#7c4dff22;color:#b39ddb;border:1px solid #7c4dff44;}
+.b-group{background:#448aff22;color:#90caf9;border:1px solid #448aff44;}
+.unread{
+  background:var(--green);color:#000;
+  font-size:10px;font-weight:700;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+
+/* ── Emoji Grid ── */
+.emoji-grid{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:8px;
+}
+.emoji-btn{
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  font-size:24px;
+  padding:10px 4px;
+  cursor:pointer;
+  transition:all 0.15s;
+  text-align:center;
+  line-height:1;
+}
+.emoji-btn:hover{border-color:var(--green);transform:scale(1.1);}
+.emoji-btn.selected{
+  border-color:var(--green);
+  background:#0a1a10;
+  box-shadow:0 0 12px var(--green-glow);
+  transform:scale(1.05);
+}
+
+/* ── Count Input ── */
+.count-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.count-preset{
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  padding:8px 14px;
+  font-size:13px;font-weight:600;
+  cursor:pointer;color:var(--muted);
+  transition:all 0.15s;
+}
+.count-preset:hover{border-color:var(--green);color:var(--green);}
+.count-preset.selected{border-color:var(--green);color:var(--green);background:#0a1a10;}
+.count-custom{
+  flex:1;min-width:80px;
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  padding:8px 12px;
+  color:var(--text);font-size:14px;font-weight:700;
+  outline:none;transition:border-color 0.2s;
+}
+.count-custom:focus{border-color:var(--green);}
+
+/* ── Summary Box ── */
+.summary{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:14px;
+}
+.summary-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;font-size:14px;
+}
+.summary-row:not(:last-child){border-bottom:1px solid var(--border);}
+.summary-label{color:var(--muted);}
+.summary-val{font-weight:700;color:var(--green);}
+
+/* ── Progress ── */
+#progress-section{display:none;margin-bottom:14px;}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.prog-label{font-size:14px;font-weight:600;}
+.prog-pct{font-size:14px;font-weight:700;color:var(--green);}
+.prog-bar-bg{
+  background:var(--surface2);
+  border-radius:99px;height:10px;
+  overflow:hidden;border:1px solid var(--border);
+}
+.prog-bar-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--green2),var(--green));
+  border-radius:99px;
+  transition:width 0.4s ease;
+  position:relative;overflow:hidden;
+}
+.prog-bar-fill::after{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,#ffffff30,transparent);
+  animation:shine 1.5s ease-in-out infinite;
+}
+@keyframes shine{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(100%);}
+}
+.prog-count{text-align:center;font-size:12px;color:var(--muted);margin-top:6px;}
+
+/* ── Buttons ── */
+.btn{
+  width:100%;padding:15px;
+  border:none;border-radius:12px;
+  font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:8px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--green2),var(--green));
+  color:#000;
+  box-shadow:0 4px 20px var(--green-glow);
+}
+.btn-primary:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0 6px 28px #00e67655;
+}
+.btn-primary:active:not(:disabled){transform:translateY(0);}
+.btn-stop{background:#3a1515;color:#ff6b6b;border:1px solid #5a2020;}
+.btn-stop:hover:not(:disabled){background:#4a1a1a;}
+.btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-outline:hover:not(:disabled){border-color:var(--muted);color:var(--text);}
+.btn:disabled{opacity:0.3;cursor:not-allowed;transform:none!important;box-shadow:none!important;}
+#stop-btn{display:none;}
+
+/* ── Alert ── */
+.alert{
+  padding:13px 16px;border-radius:12px;
+  font-size:14px;font-weight:500;
+  display:none;margin-top:10px;
+  line-height:1.5;
+}
+.a-success{background:#0a1a10;border:1px solid #00c85344;color:#69f0ae;}
+.a-error{background:#1a0a0a;border:1px solid #ff525244;color:#ff8a80;}
+.a-info{background:#0a0f1a;border:1px solid #448aff44;color:#90caf9;}
+
+/* ── Refresh btn ── */
+#load-btn{
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  color:var(--muted);
+  padding:10px 16px;
+  font-size:13px;font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s;
+  margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
+#load-btn:hover:not(:disabled){border-color:var(--green);color:var(--green);}
+#load-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);
+  background:#1a1a2a;border:1px solid var(--border);
+  border-radius:12px;padding:12px 20px;
+  font-size:14px;font-weight:500;
+  z-index:999;transition:transform 0.3s ease;
+  white-space:nowrap;max-width:90vw;
+  box-shadow:0 8px 32px #00000088;
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.t-success{border-color:#00c85344;color:#69f0ae;}
+.toast.t-error{border-color:#ff525244;color:#ff8a80;}
+.toast.t-info{border-color:#448aff44;color:#90caf9;}
+
+/* ── Empty state ── */
+.empty{
+  text-align:center;padding:24px;color:var(--muted);font-size:14px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <svg viewBox="0 0 24 24" fill="white">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      </svg>
+    </div>
+    <h1>WA <span>Reaction</span></h1>
+    <p>Kirim reaction otomatis ke pesan saluran</p>
+  </div>
+
+  <!-- Status -->
+  <div id="status-bar" class="status-pill s-disconnected">
+    <div class="dot"></div>
+    <span id="status-text">Menghubungkan ke WhatsApp...</span>
+  </div>
+
+  <!-- Loading bar -->
+  <div class="loading-bar" id="loading-bar">
+    <div class="loading-fill" id="loading-fill"></div>
+  </div>
+
+  <!-- QR Section -->
+  <div class="card" id="qr-card" style="display:none;">
+    <div class="card-header">
+      <div class="card-icon icon-blue">📱</div>
+      <div>
+        <div class="card-title">Scan QR Code</div>
+        <div class="card-sub">Gunakan WhatsApp di HP kamu</div>
+      </div>
+    </div>
+    <div class="qr-container">
+      <div class="qr-frame">
+        <img id="qr-img" src="" alt="QR Code" width="200" height="200"/>
+      </div>
+    </div>
+    <div class="qr-hint">
+      <b>Cara scan QR:</b>
+      <ul class="qr-steps">
+        <li><span class="step-num">1</span><span>Buka <b>WhatsApp</b> di HP kamu</span></li>
+        <li><span class="step-num">2</span><span>Ketuk ikon <b>⋮ (titik tiga)</b> di pojok kanan atas</span></li>
+        <li><span class="step-num">3</span><span>Pilih <b>Perangkat Tertaut</b></span></li>
+        <li><span class="step-num">4</span><span>Ketuk <b>Tautkan Perangkat</b> lalu scan QR ini</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="main-app" style="display:none;">
+
+    <!-- Pilih Chat -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-green">💬</div>
+        <div>
+          <div class="card-title">Pilih Chat / Saluran</div>
+          <div class="card-sub">Pilih target untuk reaction</div>
+        </div>
+      </div>
+      <button id="load-btn" onclick="loadChats()">
+        <span>🔄</span> Muat Daftar Chat
+      </button>
+      <div class="search-wrap" id="search-wrap" style="display:none;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Cari chat..." oninput="filterChats()"/>
+      </div>
+      <div id="chat-list"></div>
+    </div>
+
+    <!-- Pilih Emoji -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-purple">😀</div>
+        <div>
+          <div class="card-title">Pilih Emoji Reaction</div>
+          <div class="card-sub">Tap emoji yang ingin dikirim</div>
+        </div>
+      </div>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
+
+    <!-- Jumlah -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-orange">🔢</div>
+        <div>
+          <div class="card-title">Jumlah Reaction</div>
+          <div class="card-sub">Maksimal 1000 reaction</div>
+        </div>
+      </div>
+      <div class="count-row">
+        <button class="count-preset selected" onclick="setCount(100,this)">100</button>
+        <button class="count-preset" onclick="setCount(200,this)">200</button>
+        <button class="count-preset" onclick="setCount(300,this)">300</button>
+        <button class="count-preset" onclick="setCount(500,this)">500</button>
+        <input class="count-custom" type="number" id="count-input" value="100" min="1" max="1000" placeholder="Custom" oninput="onCountInput()"/>
+      </div>
+    </div>
+
+    <!-- Summary + Kirim -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-green">⚡</div>
+        <div>
+          <div class="card-title">Kirim Reaction</div>
+          <div class="card-sub">Periksa sebelum mengirim</div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="summary-row">
+          <span class="summary-label">💬 Chat</span>
+          <span class="summary-val" id="sum-chat">Belum dipilih</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">😀 Emoji</span>
+          <span class="summary-val" id="sum-emoji" style="font-size:20px;">-</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">🔢 Jumlah</span>
+          <span class="summary-val" id="sum-count">100</span>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div id="progress-section">
+        <div class="prog-header">
+          <span class="prog-label" id="prog-label">Mengirim...</span>
+          <span class="prog-pct" id="prog-pct">0%</span>
+        </div>
+        <div class="prog-bar-bg">
+          <div class="prog-bar-fill" id="prog-fill"></div>
+        </div>
+        <div class="prog-count" id="prog-count">0 / 0</div>
+      </div>
+
+      <button class="btn btn-primary" id="send-btn" onclick="sendReaction()" disabled>
+        <span>⚡</span> Kirim Reaction Sekarang
+      </button>
+      <button class="btn btn-stop" id="stop-btn" onclick="stopReaction()">
+        <span>⛔</span> Stop Pengiriman
+      </button>
+      <div id="alert-box" class="alert"></div>
+    </div>
+
+    <!-- Logout -->
+    <div class="card">
+      <button class="btn btn-outline" onclick="logout()">🚪 Logout WhatsApp</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const socket = io();
+
+const EMOJIS = [
+  '❤️','👍','😂','😮','😢','🙏',
+  '🔥','👏','🎉','💯','😍','😎',
+  '🤔','😅','👌','✅','🥰','😭',
+  '💪','🙌','⭐','🤩','😱','🫡'
+];
+
+let selectedChatId = null;
+let selectedChatName = null;
+let selectedEmoji = null;
+let selectedCount = 100;
+let allChats = [];
+let toastTimer = null;
+
+// Build emoji grid
+const grid = document.getElementById('emoji-grid');
+EMOJIS.forEach(em => {
+  const btn = document.createElement('button');
+  btn.className = 'emoji-btn';
+  btn.textContent = em;
+  btn.onclick = () => pickEmoji(em, btn);
+  grid.appendChild(btn);
+});
+
+// ─── Socket Events ─────────────────────────────────────────────────────────
+socket.on('status', ({ state, message }) => {
+  setStatus(state, message);
+});
+
+socket.on('qr', (data) => {
+  document.getElementById('qr-img').src = data;
+});
+
+socket.on('loading', ({ percent, message }) => {
+  const bar = document.getElementById('loading-bar');
+  const fill = document.getElementById('loading-fill');
+  bar.style.display = 'block';
+  fill.style.width = percent + '%';
+});
+
+socket.on('reaction_start', ({ total, emoji }) => {
+  showProgress(true);
+  document.getElementById('send-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'flex';
+  showToast(`🚀 Mulai ${total} reaction ${emoji}`, 'info');
+});
+
+socket.on('reaction_progress', ({ current, total, emoji, percent }) => {
+  document.getElementById('prog-fill').style.width = percent + '%';
+  document.getElementById('prog-pct').textContent = percent + '%';
+  document.getElementById('prog-label').textContent = `${emoji} Mengirim...`;
+  document.getElementById('prog-count').textContent = `${current} / ${total} terkirim`;
+});
+
+socket.on('reaction_done', ({ sent, emoji, note }) => {
+  finishSending();
+  document.getElementById('prog-fill').style.width = '100%';
+  document.getElementById('prog-pct').textContent = '100%';
+  document.getElementById('prog-label').textContent = 'Selesai!';
+  document.getElementById('prog-count').textContent = `${sent} reaction berhasil dikirim`;
+  showAlert(`✅ ${sent} reaction ${emoji} berhasil dikirim!${note ? ' (' + note + ')' : ''}`, 'success');
+  showToast(`✅ ${sent} reaction selesai!`, 'success');
+});
+
+socket.on('reaction_stopped', ({ sent }) => {
+  finishSending();
+  showAlert(`⛔ Dihentikan. ${sent || 0} reaction sudah terkirim.`, 'info');
+  showToast('⛔ Pengiriman dihentikan', 'info');
+});
+
+socket.on('reaction_error', ({ message, sent }) => {
+  finishSending();
+  showAlert(`❌ Error: ${message}. Terkirim: ${sent || 0}`, 'error');
+  showToast('❌ ' + message, 'error');
+});
+
+// ─── Status Handler ─────────────────────────────────────────────────────────
+function setStatus(state, message) {
+  const bar = document.getElementById('status-bar');
+  const text = document.getElementById('status-text');
+  const qrCard = document.getElementById('qr-card');
+  const mainApp = document.getElementById('main-app');
+  const loadingBar = document.getElementById('loading-bar');
+
+  bar.className = 'status-pill s-' + state;
+  text.textContent = message;
+
+  qrCard.style.display = state === 'qr' ? 'block' : 'none';
+  mainApp.style.display = state === 'ready' ? 'block' : 'none';
+
+  if (state === 'ready') {
+    loadingBar.style.display = 'none';
+    showToast('✅ WhatsApp Terhubung!', 'success');
+  }
+  if (state === 'authenticated') {
+    loadingBar.style.display = 'block';
+    document.getElementById('loading-fill').style.width = '60%';
+  }
+}
+
+// ─── Functions ──────────────────────────────────────────────────────────────
+function pickEmoji(em, btn) {
+  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedEmoji = em;
+  document.getElementById('sum-emoji').textContent = em;
+  checkReady();
+}
+
+function pickChat(id, name, el) {
+  document.querySelectorAll('.chat-item').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedChatId = id;
+  selectedChatName = name;
+  document.getElementById('sum-chat').textContent = name.length > 20 ? name.slice(0,20)+'...' : name;
+  checkReady();
+}
+
+function setCount(n, btn) {
+  document.querySelectorAll('.count-preset').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+  selectedCount = n;
+  document.getElementById('count-input').value = n;
+  document.getElementById('sum-count').textContent = n;
+}
+
+function onCountInput() {
+  const val = parseInt(document.getElementById('count-input').value) || 100;
+  document.querySelectorAll('.count-preset').forEach(b => b.classList.remove('selected'));
+  selectedCount = val;
+  document.getElementById('sum-count').textContent = val;
+}
+
+function checkReady() {
+  document.getElementById('send-btn').disabled = !(selectedChatId && selectedEmoji);
+}
+
+function filterChats() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = allChats.filter(c => c.name.toLowerCase().includes(q));
+  renderChats(filtered);
+}
+
+async function loadChats() {
+  const btn = document.getElementById('load-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Memuat...';
+  try {
+    const res = await fetch('/api/chats');
+    const data = await res.json();
+    if (data.error) { showToast('❌ ' + data.error, 'error'); return; }
+    allChats = data;
+    renderChats(data);
+    if (data.length > 5) {
+      document.getElementById('search-wrap').style.display = 'block';
+    }
+  } catch (err) {
+    showToast('❌ Gagal memuat: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔄</span> Muat Ulang';
+  }
+}
+
+function renderChats(chats) {
+  const list = document.getElementById('chat-list');
+  list.innerHTML = '';
+  if (!chats.length) {
+    list.innerHTML = '<div class="empty">😕 Tidak ada chat ditemukan</div>';
+    return;
+  }
+  chats.forEach(chat => {
+    const div = document.createElement('div');
+    div.className = 'chat-item';
+    let badge = '';
+    if (chat.isChannel) badge = '<span class="badge b-channel">Saluran</span>';
+    else if (chat.isGroup) badge = '<span class="badge b-group">Grup</span>';
+    const initial = chat.name.charAt(0).toUpperCase();
+    const unread = chat.unreadCount > 0 ? `<span class="unread">${chat.unreadCount}</span>` : '';
+    div.innerHTML = `
+      <div class="chat-avatar">${initial}</div>
+      <div class="chat-info">
+        <div class="chat-name">${esc(chat.name)}${badge}</div>
+        <div class="chat-last">${esc(chat.lastMessage)}</div>
+      </div>
+      ${unread}
+    `;
+    div.onclick = () => pickChat(chat.id, chat.name, div);
+    list.appendChild(div);
+  });
+}
+
+async function sendReaction() {
+  if (!selectedChatId || !selectedEmoji) return;
+  const count = parseInt(document.getElementById('count-input').value) || 100;
+  if (count < 1 || count > 1000) {
+    showToast('❌ Jumlah harus 1 - 1000', 'error'); return;
+  }
+  try {
+    const res = await fetch('/api/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId: selectedChatId, emoji: selectedEmoji, count })
+    });
+    const data = await res.json();
+    if (!data.success) showToast('❌ ' + data.error, 'error');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function stopReaction() {
+  try {
+    await fetch('/api/stop', { method: 'POST' });
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function logout() {
+  if (!confirm('Yakin mau logout dari WhatsApp?')) return;
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+    showToast('✅ Berhasil logout!', 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+function showProgress(show) {
+  document.getElementById('progress-section').style.display = show ? 'block' : 'none';
+  if (show) {
+    document.getElementById('prog-fill').style.width = '0%';
+    document.getElementById('prog-pct').textContent = '0%';
+    document.getElementById('prog-count').textContent = '0 / 0';
+  }
+}
+
+function finishSending() {
+  document.getElementById('send-btn').style.display = 'flex';
+  document.getElementById('stop-btn').style.display = 'none';
+  checkReady();
+}
+
+function showAlert(msg, type) {
+  const box = document.getElementById('alert-box');
+  box.className = 'alert a-' + type;
+  box.textContent = msg;
+  box.style.display = 'block';
+  if (type !== 'error') setTimeout(() => box.style.display = 'none', 6000);
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.className = 'toast t-' + type;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
